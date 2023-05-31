@@ -327,7 +327,7 @@ for key, value in sensor_id.items():
     if rp_data_downsampled_ !=[]:
         conn = http.client.HTTPSConnection("foodfriend-backend.medvision360.org​")
         payload = ''
-        headers2 = {
+        headers2= {
           'Authorization': f'Bearer {access_token_MR}',
           'Content-Type': 'application/x-www-form-urlencoded'
         }
