@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Nov 14 15:10:24 2022
-
-@author: SofiaPerez-Simbor
 """
+
 #%% Imports and global variables
 import http.client
 import json
@@ -275,48 +274,30 @@ userId_BACE=rp_me['user']['id_user']
 
 print("Authentication in BACE successful")
 
-
 #%% Getting the data from BACE Cloud
 print("Getting data from BACE backend")
-
-
 ep_physical_device=f"{endpoint_BACE}/api/v2/physical-device?filter[id_device_type]=bace-go"
 headers = {"Authorization": f"Bearer {access_token_BACE}","Accept": "application/json"}
+print(headers)
 rp_physical_device= rq.get(ep_physical_device, headers=headers).json()
-
 ep_groups=f"{endpoint_BACE}/api/v2/group?filter[label]=BaceGo-001-002-00020&expand=latestSession"
 rp_groups=rq.get(ep_groups, headers=headers).json()
-
 From_timestamp = str(rp_groups['items'][0]['latestSession']['start'])
-# To_timestamp = str(rp_groups['items'][0]['latestSession']['end'])
 id_group_=rp_groups['items'][0]['id']
+print("print_id_group", id_group_)
 
-print(From_timestamp)
-# print(To_timestamp)
-print(id_group_)
-#
-# ep_data_downsampled_spo2=f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[timestamp_seconds][lt]={To_timestamp}&filter[datatype]=6002"
+# ep_data_downsampled_spo2=f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=6002"
 # rp_data_downsampled_spo2= rq.get(ep_data_downsampled_spo2, headers=headers).json()
-#
-#
-# print(ep_data_downsampled_spo2)
-#
-#
-ep_data_downsampled_hr=f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=5205"
-rp_data_downsampled_hr= rq.get(ep_data_downsampled_hr, headers=headers).json()
-#
-# ep_data_downsampled_rr=f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[timestamp_seconds][lt]={To_timestamp}&filter[datatype]=6001"
+# rp_data_downsampled_spo2 = sorted(rp_data_downsampled_spo2['items'], key=lambda k: k.get('timestamp_seconds', 0), reverse=True)
+
+
+# ep_data_downsampled_rr=f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=6001"
 # rp_data_downsampled_rr= rq.get(ep_data_downsampled_rr, headers=headers).json()
 #
-# ep_data_raw_bw=f"{endpoint_BACE}/api/v2/data-downsampled/index?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[timestamp_seconds][lt]={To_timestamp}&filter[datatype]=6011"
+# ep_data_raw_bw=f"{endpoint_BACE}/api/v2/data-downsampled/index?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=6011"
 # rp_data_raw_bw= rq.get(ep_data_raw_bw, headers=headers).json()
-#
-#
-#
-#
-# HR_downsampled = [rp_data_downsampled_hr['items'][i]['avg_val']for i in range (rp_data_downsampled_hr['_meta']['totalCount'])]
-# Time_HR=[rp_data_downsampled_hr['items'][i]['timestamp_seconds']for i in range (rp_data_downsampled_hr['_meta']['totalCount'])]
-#
+
+
 # SpO2_downsampled = [rp_data_downsampled_spo2['items'][i]['avg_val']for i in range (rp_data_downsampled_spo2['_meta']['totalCount'])]
 # Time_SpO2=[rp_data_downsampled_spo2['items'][i]['timestamp_seconds']for i in range (rp_data_downsampled_spo2['_meta']['totalCount'])]
 #
@@ -327,31 +308,89 @@ rp_data_downsampled_hr= rq.get(ep_data_downsampled_hr, headers=headers).json()
 # Time_weight=[rp_data_raw_bw['items'][i]['timestamp_seconds']for i in range (rp_data_raw_bw['_meta']['totalCount'])]
 
 
-HR_downsampled = [str(int(float(rp_data_downsampled_hr['items'][i]['avg_val'])) * 20)  for i in range (rp_data_downsampled_hr['_meta']['totalCount'])]
-Time_HR=[rp_data_downsampled_hr['items'][i]['timestamp_seconds']for i in range (rp_data_downsampled_hr['_meta']['totalCount'])]
 
 
 
+sensor_id= {"oxygenSaturation": "6002", "pulseRate":"6000"}
+function_list = {"oxygenSaturation": adding_Spo2, "pulseRate": adding_HR}
 
-print(HR_downsampled)
-print(Time_HR)
+for key, value in sensor_id.items():
+    # fetch data from medrecords and upload new value if applicable
+
+    rp_data_downsampled_ = sorted(rq.get(f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=" + value, headers=headers).json()['items'], key=lambda k: k.get('timestamp_seconds', 0), reverse=True)
+
+    # ep_data_downsampled_=f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=" + value
+    # rp_data_downsampled_= rq.get(ep_data_downsampled_, headers=headers).json()
+    # print(rp_data_downsampled_)
+    # rp_data_downsampled_ = sorted(rp_data_downsampled_['items'], key=lambda k: k.get('timestamp_seconds', 0), reverse=True)
+
+    if rp_data_downsampled_ !=[]:
+        conn = http.client.HTTPSConnection("foodfriend-backend.medvision360.org​")
+        payload = ''
+        headers2= {
+          'Authorization': f'Bearer {access_token_MR}',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        conn.request("GET", f"/patient/{userId_MR}/observation/" + key + "?count=5&start=0", payload, headers2)
+        data=json.loads(conn.getresponse().read())
+        latest_time = data[0]['effective']['date']
+        from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:-3]
+        from_Med  = datetime.isoformat(datetime.fromisoformat(latest_time) + timedelta(hours = 2))[0:-9]
+
+        if from_BACE != from_Med:
+            print("New value found, uploading to Medrecords")
+            dt_obj = datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds'])
+            dt = datetime.isoformat(dt_obj)
+            dt = datetime.fromisoformat(dt)
+            # Add two hours to the datetime object
+            dt += timedelta(hours=-2)
+            date=datetime.isoformat(dt)
+            print(date)
+            Comment=f"Mesurement performed with BACE Go ID 20"
+            function_list[key](userId=userId_MR,comment=Comment, rate=rp_data_downsampled_[0]['avg_val'],access_token=access_token_MR, date=date)
+            print("Uploaded  values into MEDrecord platform")
+        else:
+            print("No new value of HR found")
+
+    else:
+        print("HR sensor is not turned ON")
 
 
 
+# # fetch Spo2 data from medrecords and upload new value if applicable
+# rp_data_downsampled_hr = sorted(rq.get(f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=6000", headers=headers).json()['items'], key=lambda k: k.get('timestamp_seconds', 0), reverse=True)
 #
-# #%% Adding parameters
-
-dt_obj = datetime.fromtimestamp(Time_HR[-1])
-dt = datetime.isoformat(dt_obj)
-dt = datetime.fromisoformat(dt)
-# Add two hours to the datetime object
-dt += timedelta(hours=-2)
-date=datetime.isoformat(dt)
-print(date)
-Comment_HR=f"Mesurement performed with BACE Go ID 20"
-adding_HR (userId=userId_MR,comment=Comment_HR, rate=HR_downsampled[-1],access_token=access_token_MR, date=date)
+# conn = http.client.HTTPSConnection("foodfriend-backend.medvision360.org​")
+# payload = ''
+# headers = {
+#   'Authorization': f'Bearer {access_token_MR}',
+#   'Content-Type': 'application/x-www-form-urlencoded'
+# }
+# conn.request("GET", f"/patient/{userId_MR}/observation/pulseRate?count=20&start=0", payload, headers)
+# data=json.loads(conn.getresponse().read())
+# latest_time = data[0]['effective']['date']
+# from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_hr[0]['timestamp_seconds']))[0:-3]
+# from_Med  = datetime.isoformat(datetime.fromisoformat(latest_time) + timedelta(hours = 2))[0:-9]
 #
-print("Uploaded HR values into MEDrecord platform")
+# if from_BACE != from_Med:
+#     print("New value found, uploading to Medrecords")
+#     dt_obj = datetime.fromtimestamp(rp_data_downsampled_hr[0]['timestamp_seconds'])
+#     dt = datetime.isoformat(dt_obj)
+#     dt = datetime.fromisoformat(dt)
+#     # Add two hours to the datetime object
+#     dt += timedelta(hours=-2)
+#     date=datetime.isoformat(dt)
+#     print(date)
+#     Comment_HR=f"Mesurement performed with BACE Go ID 20"
+#     adding_HR (userId=userId_MR,comment=Comment_HR, rate=rp_data_downsampled_hr[0]['avg_val'],access_token=access_token_MR, date=date)
+#     print("Uploaded HR values into MEDrecord platform")
+# else:
+#     print("No new value of HR found")
+
+
+
+
+
 # #%% Reading HR
 #
 # conn = http.client.HTTPSConnection("foodfriend-backend.medvision360.org​")
