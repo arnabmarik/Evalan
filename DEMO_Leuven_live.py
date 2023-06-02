@@ -145,7 +145,7 @@ def adding_RR (userId=None, comment=None, rate=None, access_token=None, date=Non
         "comment": comment,
         "effective": {
             "date": date,
-            "precision": "MINUTE"
+            "precision": "SECOND"
         },
         "rate": rate,
         "regularity": "REGULAR"
@@ -275,7 +275,7 @@ print("Getting data from BACE backend")
 ep_physical_device=f"{endpoint_BACE}/api/v2/physical-device?filter[id_device_type]=bace-go"
 headers = {"Authorization": f"Bearer {access_token_BACE}","Accept": "application/json"}
 rp_physical_device= rq.get(ep_physical_device, headers=headers).json()
-ep_groups=f"{endpoint_BACE}/api/v2/group?filter[label]=BaceGo-001-002-00020&expand=latestSession"
+ep_groups=f"{endpoint_BACE}/api/v2/group?filter[label]=BaceGo-001-002-03559&expand=latestSession"
 rp_groups=rq.get(ep_groups, headers=headers).json()
 From_timestamp = str(rp_groups['items'][0]['latestSession']['start'])
 id_group_=rp_groups['items'][0]['id']
@@ -315,7 +315,7 @@ for key, value in sensor_id.items():
                 print(date)
                 print(key, rp_data_downsampled_[0]['avg_val'])
                 Comment=f"Mesurement performed with BACE Go ID 20"
-                function_list[key](userId=userId_MR,comment=Comment, rate=rp_data_downsampled_[0]['avg_val'],access_token=access_token_MR, date=date)
+                function_list[key](userId=userId_MR,comment=Comment, rate=np.floor(np.float(rp_data_downsampled_[0]['avg_val'])),access_token=access_token_MR, date=date)
                 print("Uploaded " +  key + " values into MEDrecord platform")
             else:
                 print("No new value of " + key + " found")
@@ -329,8 +329,7 @@ for key, value in sensor_id.items():
             date = datetime.isoformat(dt)
             Comment = f"Mesurement performed with BACE Go ID 20"
             print(date)
-            print(key, rp_data_downsampled_[0]['avg_val'])
-            function_list[key](userId=userId_MR, comment=Comment, rate=10,
+            function_list[key](userId=userId_MR, comment=Comment, rate=np.floor(np.float(rp_data_downsampled_[0]['avg_val'])),
                                access_token=access_token_MR, date=date)
 
     else:
