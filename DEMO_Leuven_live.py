@@ -282,8 +282,8 @@ id_group_=rp_groups['items'][0]['id']
 
 
 
-sensor_id= {"respiratoryRate": "6001", "pulseRate": "6000", "oxygenSaturation": "6002", "bodyweight": "6011"}
-function_list = {"respiratoryRate": adding_RR,  "pulseRate": adding_HR, "oxygenSaturation": adding_Spo2, "bodyweight": adding_BodyWeight}
+sensor_id= {"respiratoryRate": "6001", "pulseRate": "6000", "oxygenSaturation": "6002", "bodyWeight": "6011"}
+function_list = {"respiratoryRate": adding_RR,  "pulseRate": adding_HR, "oxygenSaturation": adding_Spo2, "bodyWeight": adding_BodyWeight}
 
 for key, value in sensor_id.items():
     # fetch data from medrecords and upload new value if applicable
@@ -301,8 +301,13 @@ for key, value in sensor_id.items():
         data=json.loads(conn.getresponse().read())
         try:
             latest_time = data[0]['effective']['date']
-            from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:-3]
-            from_Med  = datetime.isoformat(datetime.fromisoformat(latest_time) + timedelta(hours = 2))[0:-9]
+            if key == "bodyWeight":
+                from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:10]
+                from_Med  = datetime.isoformat(datetime.fromisoformat(latest_time))[0:10]
+            else:
+                from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:-3]
+                from_Med = datetime.isoformat(datetime.fromisoformat(latest_time) + timedelta(hours=2))[0:-9]
+
 
             if from_BACE != from_Med:
                 print("New value  of "+ key + "found , uploading to Medrecords")
@@ -315,7 +320,7 @@ for key, value in sensor_id.items():
                 print(date)
                 print(key, rp_data_downsampled_[0]['avg_val'])
                 Comment=f"Mesurement performed with BACE Go ID 20"
-                function_list[key](userId=userId_MR,comment=Comment, rate=np.floor(np.float(rp_data_downsampled_[0]['avg_val'])),access_token=access_token_MR, date=date)
+                function_list[key](userId=userId_MR,comment=Comment, rate=np.floor(float(rp_data_downsampled_[0]['avg_val'])),access_token=access_token_MR, date=date)
                 print("Uploaded " +  key + " values into MEDrecord platform")
             else:
                 print("No new value of " + key + " found")
