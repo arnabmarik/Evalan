@@ -211,134 +211,142 @@ def flatten(lis):
 
 #%% Printing Letters
 
+while True:
 
-#%% Authentication MEDRECORD
-print("Authenticating in MedRecord")
-code_verifier, code_challenge = pkce.generate_pkce_pair()
-signin=signin_password(code_challenge=code_challenge)
+    #%% Authentication MEDRECORD
+    print("Authenticating in MedRecord")
+    code_verifier, code_challenge = pkce.generate_pkce_pair()
+    signin=signin_password(code_challenge=code_challenge)
 
-redirect_uri_after_signin=signin['redirectUri']
-find_code=redirect_uri_after_signin.find("code")
-find_state=redirect_uri_after_signin.find("&state")
-Code=redirect_uri_after_signin[(find_code+5):find_state]
+    redirect_uri_after_signin=signin['redirectUri']
+    find_code=redirect_uri_after_signin.find("code")
+    find_state=redirect_uri_after_signin.find("&state")
+    Code=redirect_uri_after_signin[(find_code+5):find_state]
 
-oauth= oauth_token (Code=Code, code_verifier=code_verifier)
-access_token_MR=oauth['access_token']
-refresh_token=oauth['refresh_token']
-print("Authentication in MedRecord successful")
+    oauth= oauth_token (Code=Code, code_verifier=code_verifier)
+    access_token_MR=oauth['access_token']
+    refresh_token=oauth['refresh_token']
+    print("Authentication in MedRecord successful")
 
-#%% REFRESH TOKEN #%%
-access_token_MR=refreshing_token(Code =Code, code_verifier=code_verifier,refresh_token=refresh_token, access_token=access_token_MR)
-print("This is the access token", access_token_MR)
-#%% Is token Valid?
-
-
-conn = http.client.HTTPSConnection("foodfriend-auth.medvision360.org")
-payload = ''
-headers = {
-  'Authorization': f'Bearer {access_token_MR}'
-}
-conn.request("GET", "/token/validate", payload, headers)
-res = conn.getresponse()
-data = res.read()
+    #%% REFRESH TOKEN #%%
+    access_token_MR=refreshing_token(Code =Code, code_verifier=code_verifier,refresh_token=refresh_token, access_token=access_token_MR)
+    print("This is the access token", access_token_MR)
+    #%% Is token Valid?
 
 
-#%% WhoamI MEdrecord
-
-conn = http.client.HTTPSConnection("foodfriend-auth.medvision360.org")
-payload = ''
-headers = {
-  'Authorization': f'Bearer {access_token_MR}'
-}
-conn.request("GET", "/token/whoami", payload, headers)
-res = conn.getresponse()
-data = res.read()
-data2 = json.loads(data)
-userId_MR=data2['id']
-
-#%% Authentication BACE
-print("Starting Authentication with BACE")
-link = create_oauth_link()
-# print(f"Follow the link to start the authentication with Evalan: {link}")
-access_token_BACE = exchange_code_for_access_token()
-# print(f"access token: {access_token_BACE}")
-#This gives information about the current user
-ep_me = f"{endpoint_BACE}/api/v2/user/self"
-headers = {"Authorization": f"Bearer {access_token_BACE}","Accept": "application/json" }
-rp_me = rq.get(ep_me, headers=headers).json()
-userId_BACE=rp_me['user']['id_user']
-
-print("Authentication in BACE successful")
-
-#%% Getting the data from BACE Cloud
-print("Getting data from BACE backend")
-ep_physical_device=f"{endpoint_BACE}/api/v2/physical-device?filter[id_device_type]=bace-go"
-headers = {"Authorization": f"Bearer {access_token_BACE}","Accept": "application/json"}
-rp_physical_device= rq.get(ep_physical_device, headers=headers).json()
-ep_groups=f"{endpoint_BACE}/api/v2/group?filter[label]=BaceGo-001-002-03559&expand=latestSession"
-rp_groups=rq.get(ep_groups, headers=headers).json()
-From_timestamp = str(rp_groups['items'][0]['latestSession']['start'])
-id_group_=rp_groups['items'][0]['id']
+    conn = http.client.HTTPSConnection("foodfriend-auth.medvision360.org")
+    payload = ''
+    headers = {
+      'Authorization': f'Bearer {access_token_MR}'
+    }
+    conn.request("GET", "/token/validate", payload, headers)
+    res = conn.getresponse()
+    data = res.read()
 
 
+    #%% WhoamI MEdrecord
 
-sensor_id= {"respiratoryRate": "6001", "pulseRate": "6000", "oxygenSaturation": "6002", "bodyWeight": "6011"}
-function_list = {"respiratoryRate": adding_RR,  "pulseRate": adding_HR, "oxygenSaturation": adding_Spo2, "bodyWeight": adding_BodyWeight}
+    conn = http.client.HTTPSConnection("foodfriend-auth.medvision360.org")
+    payload = ''
+    headers = {
+      'Authorization': f'Bearer {access_token_MR}'
+    }
+    conn.request("GET", "/token/whoami", payload, headers)
+    res = conn.getresponse()
+    data = res.read()
+    data2 = json.loads(data)
+    userId_MR=data2['id']
 
-for key, value in sensor_id.items():
-    # fetch data from medrecords and upload new value if applicable
+    #%% Authentication BACE
+    print("Starting Authentication with BACE")
+    link = create_oauth_link()
+    # print(f"Follow the link to start the authentication with Evalan: {link}")
+    access_token_BACE = exchange_code_for_access_token()
+    # print(f"access token: {access_token_BACE}")
+    #This gives information about the current user
+    ep_me = f"{endpoint_BACE}/api/v2/user/self"
+    headers = {"Authorization": f"Bearer {access_token_BACE}","Accept": "application/json" }
+    rp_me = rq.get(ep_me, headers=headers).json()
+    userId_BACE=rp_me['user']['id_user']
 
-    rp_data_downsampled_ = sorted(rq.get(f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=" + value, headers=headers).json()['items'], key=lambda k: k.get('timestamp_seconds', 0), reverse=True)
+    print("Authentication in BACE successful")
 
-    if rp_data_downsampled_ !=[]:
-        conn = http.client.HTTPSConnection("foodfriend-backend.medvision360.org​")
-        payload = ''
-        headers2= {
-          'Authorization': f'Bearer {access_token_MR}',
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        conn.request("GET", f"/patient/{userId_MR}/observation/" + key + "?count=1&start=0", payload, headers2)
-        data=json.loads(conn.getresponse().read())
-        try:
-            latest_time = data[0]['effective']['date']
-            if key == "bodyWeight":
-                from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:10]
-                from_Med  = datetime.isoformat(datetime.fromisoformat(latest_time))[0:10]
-            else:
-                from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:-3]
-                from_Med = datetime.isoformat(datetime.fromisoformat(latest_time) + timedelta(hours=2))[0:-9]
+    #%% Getting the data from BACE Cloud
+    print("Getting data from BACE backend")
+    ep_physical_device=f"{endpoint_BACE}/api/v2/physical-device?filter[id_device_type]=bace-go"
+    headers = {"Authorization": f"Bearer {access_token_BACE}","Accept": "application/json"}
+    rp_physical_device= rq.get(ep_physical_device, headers=headers).json()
+    ep_groups=f"{endpoint_BACE}/api/v2/group?filter[label]=BaceGo-001-002-03193&expand=latestSession"
+    rp_groups=rq.get(ep_groups, headers=headers).json()
+    From_timestamp = str(rp_groups['items'][0]['latestSession']['start'])
+    id_group_=rp_groups['items'][0]['id']
 
 
-            if from_BACE != from_Med:
-                print("New value  of "+ key + "found , uploading to Medrecords")
-                dt_obj = datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds'])
-                dt = datetime.isoformat(dt_obj)
-                dt = datetime.fromisoformat(dt)
-                # Add two hours to the datetime object
-                dt += timedelta(hours=-2)
-                date=datetime.isoformat(dt)
-                print(date)
-                print(key, rp_data_downsampled_[0]['avg_val'])
-                Comment=f"Mesurement performed with BACE Go ID 20"
-                function_list[key](userId=userId_MR,comment=Comment, rate=np.floor(float(rp_data_downsampled_[0]['avg_val'])),access_token=access_token_MR, date=date)
-                print("Uploaded " +  key + " values into MEDrecord platform")
-            else:
-                print("No new value of " + key + " found")
-        except:
-            print("New value  of " + key + "found , uploading to Medrecords")
-            dt_obj = datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds'])
-            dt = datetime.isoformat(dt_obj)
-            dt = datetime.fromisoformat(dt)
-            # Add two hours to the datetime object
-            dt += timedelta(hours=-2)
-            date = datetime.isoformat(dt)
-            Comment = f"Mesurement performed with BACE Go ID 20"
-            print(date)
-            function_list[key](userId=userId_MR, comment=Comment, rate=np.floor(np.float(rp_data_downsampled_[0]['avg_val'])),
-                               access_token=access_token_MR, date=date)
 
-    else:
-        print(key + "sensor is not turned ON")
+    sensor_id= {"respiratoryRate": "6001", "pulseRate": "6000", "oxygenSaturation": "6002", "bodyWeight": "6011"}
+    function_list = {"respiratoryRate": adding_RR,  "pulseRate": adding_HR, "oxygenSaturation": adding_Spo2, "bodyWeight": adding_BodyWeight}
+
+    for key, value in sensor_id.items():
+        # fetch data from medrecords and upload new value if applicable
+
+        rp_data_downsampled_ = sorted(rq.get(f"{endpoint_BACE}/api/v2/data-downsampled?filter[id_group]={id_group_}&filter[timestamp_seconds][gt]={From_timestamp}&filter[datatype]=" + value, headers=headers).json()['items'], key=lambda k: k.get('timestamp_seconds', 0), reverse=True)
+
+        if rp_data_downsampled_ !=[]:
+            conn = http.client.HTTPSConnection("foodfriend-backend.medvision360.org​")
+            payload = ''
+            headers2= {
+              'Authorization': f'Bearer {access_token_MR}',
+              'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            conn.request("GET", f"/patient/{userId_MR}/observation/" + key + "?count=1&start=0", payload, headers2)
+            data=json.loads(conn.getresponse().read())
+            try:
+                latest_time = data[0]['effective']['date']
+                print(f'latest_time:{latest_time}')
+                if key == "bodyWeight":
+                    from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:10]
+                    print(f'frombaceweight{from_BACE}')
+                    from_Med  = datetime.isoformat(datetime.utcfromtimestamp(latest_time/1000) + timedelta(hours=2))[0:-9]
+                    print(f'frommedweight{from_Med}')
+
+                else:
+                    from_BACE = datetime.isoformat(datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds']))[0:-3]
+                    print(f'frombace{from_BACE}')
+                    from_Med = datetime.isoformat(datetime.utcfromtimestamp(latest_time/1000) + timedelta(hours=2))[0:-3]
+                    print(f'frommed{from_Med}')
+
+
+                if from_BACE != from_Med:
+                    print("New value  of "+ key + "found , uploading to Medrecords")
+                    dt_obj = datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds'])
+                    dt = datetime.isoformat(dt_obj)
+                    dt = datetime.fromisoformat(dt)
+                    # Add two hours to the datetime object
+                    dt += timedelta(hours=-2)
+                    date=datetime.isoformat(dt)
+                    print(date)
+                    print(key, rp_data_downsampled_[0]['avg_val'])
+                    Comment=f"Mesurement performed with BACE Go ID 20"
+                    function_list[key](userId=userId_MR,comment=Comment, rate=np.floor(float(rp_data_downsampled_[0]['avg_val'])),access_token=access_token_MR, date=date)
+                    print("Uploaded " +  key + " values into MEDrecord platform")
+                else:
+                    print("No new value of " + key + " found")
+            except:
+                print("going through here")
+                # print("New value  of " + key + "found , uploading to Medrecords")
+                # dt_obj = datetime.fromtimestamp(rp_data_downsampled_[0]['timestamp_seconds'])
+                # dt = datetime.isoformat(dt_obj)
+                # dt = datetime.fromisoformat(dt)
+                # # Add two hours to the datetime object
+                # dt += timedelta(hours=-2)
+                # date = datetime.isoformat(dt)
+                # Comment = f"Mesurement performed with BACE Go ID 20"
+                # print(date)
+                # function_list[key](userId=userId_MR, comment=Comment, rate=np.floor(np.float(rp_data_downsampled_[0]['avg_val'])),
+                #                    access_token=access_token_MR, date=date)
+
+        else:
+            print(key + "sensor is not turned ON")
 
 
 
